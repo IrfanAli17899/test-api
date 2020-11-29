@@ -1,0 +1,210 @@
+
+version: 2.1
+
+orbs:
+  gke: circleci/gcp-gke@1.1.0
+  gcp-gcr: circleci/gcp-gcr@0.9.0   
+  slack: circleci/slack@3.4.2          
+executor:
+   default: gke/default
+      
+jobs:
+  deployment:
+    executor: gke/default
+    parameters:
+      cluster:
+        type: string 
+      image:
+        type: string 
+      hostname:
+        type: string  
+      service-key:
+        type: string     
+      google-project-id:
+        type: string  
+      git-user-pass:
+        type: string
+      git-user:
+        type: string
+      gitea-access-token:
+        type: string
+      gitea-base-url:
+        type: string
+      gitea-ssh-ip:
+        type: string
+      gitea-ssh-port:
+        type: integer  
+      password-salt:
+        type: string
+      token-salt:
+        type: string
+      hasura-cloud-uri:
+        type: string
+      hasura-access-key:
+        type: string
+      customer-cluster-id:
+        type: string
+      customer-cluster-project-id:
+        type: string 
+      customer-cluster-zone:
+        type: string   
+      api-service-key:
+        type: string
+      deployment-base-domain:
+        type: string
+      cloudbuild-trigger-name:
+        type: string 
+      client-id:
+        type: string
+      client-secret:
+        type: string
+      auth-api-url:
+        type: string
+      auth-github-token:
+        type: string
+      auth-api-token:
+        type: string    
+      audience:
+        type: string  
+          
+
+    steps:
+    - gke/update-kubeconfig-with-credentials:
+        cluster: <<parameters.cluster>>
+        install-kubectl: true
+        perform-login: true
+        gcloud-service-key: <<parameters.service-key>>
+        google-project-id: <<parameters.google-project-id>>
+    - checkout    
+    - run: kubectl cluster-info
+    - run: sudo apt-get update && sudo apt-get install -y gettext-base
+    - run: 
+        command: |
+          echo "export NAMESPACE=default" >> $BASH_ENV
+          echo "export IMAGE=<<parameters.image>>" >> $BASH_ENV
+          echo "export HOSTNAME=<<parameters.hostname>>" >> $BASH_ENV
+    - run:
+        command: |
+          echo "export  CUSTOMER_CLUSTER_ID=$(echo  -n <<parameters.customer-cluster-id>> | base64)" >> $BASH_ENV
+          echo "export  CUSTOMER_CLUSTER_PROJECT_ID=$(echo -n <<parameters.customer-cluster-project-id>> | base64)" >> $BASH_ENV
+          echo "export  SERVICE_ACCOUNT=$(echo -n <<parameters.api-service-key>> | base64 | tr -d '\n')" >> $BASH_ENV
+          echo "export  GIT_PASS=$(echo -n <<parameters.git-user-pass>> | base64)" >> $BASH_ENV
+          echo "export  CUSTOMER_CLUSTER_ZONE=$(echo -n <<parameters.customer-cluster-zone>> | base64)" >> $BASH_ENV
+          echo "export  GITEA_ACCESS_TOKEN=$(echo -n <<parameters.gitea-access-token>> | base64)" >> $BASH_ENV
+          echo "export  GITEA_BASE_URL=$(echo -n <<parameters.gitea-base-url>> | base64)" >> $BASH_ENV
+          echo "export  GITEA_SSH_IP=$(echo -n <<parameters.gitea-ssh-ip>> | base64)" >> $BASH_ENV
+          echo "export  GIT_USER=$(echo -n <<parameters.git-user>> | base64)" >> $BASH_ENV
+          echo "export  HASURA_CLOUD_URI=$(echo -n <<parameters.hasura-cloud-uri>> | base64)" >> $BASH_ENV
+          echo "export  PASSWORD_SALT=$(echo -n <<parameters.password-salt>> | base64)" >> $BASH_ENV
+          echo "export  TOKEN_SALT=$(echo -n <<parameters.token-salt>> | base64)" >> $BASH_ENV
+          echo "export  DEPLOYMENT_BASE_DOMAIN=$(echo -n <<parameters.deployment-base-domain>> | base64)" >> $BASH_ENV
+          echo "export  CLOUDBUILD_TRIGGER_NAME=$(echo -n <<parameters.cloudbuild-trigger-name>> | base64)" >> $BASH_ENV
+          echo "export GITEA_SSH_PORT=$(echo -n <<parameters.gitea-ssh-port>> | base64)" >> $BASH_ENV
+          echo "export CLIENT_ID=$(echo -n <<parameters.client-id>> | base64)" >> $BASH_ENV
+          echo "export CLIENT_SECRET=$(echo -n <<parameters.client-secret>> | base64 | tr -d '\n')" >> $BASH_ENV
+          echo "export AUTH_API_URL=$(echo -n <<parameters.auth-api-url>> | base64)" >> $BASH_ENV
+          echo "export AUDIENCE=$(echo -n <<parameters.audience>> | base64)" >> $BASH_ENV
+          echo "export AUTH_GITHUB_TOKEN=$(echo -n <<parameters.auth-github-token>> | base64)" >> $BASH_ENV
+          echo "export HASURA_ACCESS_KEY=$(echo -n <<parameters.hasura-access-key>> | base64)" >> $BASH_ENV
+          echo "export AUTH_API_TOKEN=$(echo -n <<parameters.auth-api-token>> | base64 |tr -d '\n')" >> $BASH_ENV
+    - run: envsubst < kubernetes/kubernetes.yaml.tpl > kubernetes.yaml
+    - run: kubectl apply -f kubernetes.yaml
+    - slack/notify
+workflows: 
+  prod-deployment:
+    jobs:
+    - gcp-gcr/build-and-push-image:
+        image: api
+        tag: $CIRCLE_SHA1
+        gcloud-service-key: GCLOUD_PROD_SERVICE_KEY 
+        google-project-id: GOOGLE_PROD_PROJECT
+        filters:
+          branches:
+              only:
+                - master
+    - deployment:
+        cluster: $APP_PROD_CLUSTER
+        hostname: api.sidespin.net
+        image: gcr.io/$GOOGLE_PROD_PROJECT/api:$CIRCLE_SHA1
+        service-key: GCLOUD_PROD_SERVICE_KEY
+        google-project-id: GOOGLE_PROD_PROJECT
+        hasura-access-key: $HASURA_PROD_ACCESS_KEY
+        hasura-cloud-uri: $HASURA_PROD_CLOUD_URI
+        auth-github-token: $AUTH_STAGING_GITHUB_TOKEN
+        api-service-key: $API_PROD_SERVICE_ACCOUNT
+        git-user-pass: $GIT_PROD_USER_PASS
+        git-user: $GIT_PROD_USER 
+        gitea-ssh-port: 22
+        gitea-access-token: $GITEA_PROD_ACCESS_TOKEN
+        gitea-base-url: $GITEA_PROD_BASE_URL
+        gitea-ssh-ip: $GITEA_PROD_SSH_IP 
+        password-salt: $PASSWORD_SALT_PROD
+        token-salt: $TOKEN_SALT_PROD
+        customer-cluster-project-id: $CUSTOMER_PROD_CLUSTER_PROJECT_ID
+        customer-cluster-id: $CUSTOMER_PROD_CLUSTER_ID
+        customer-cluster-zone: $CUSTOMER_PROD_CLUSTER_ZONE
+        cloudbuild-trigger-name: $CLOUDBUILD_PROD_TRIGGER_NAME
+        auth-api-token: $AUTH_PROD_API_TOKEN
+        deployment-base-domain: $DEPLOYMENT_BASE_PROD_DOMAIN
+        client-id: $CLIENT_ID_PROD
+        client-secret: $CLIENT_SECRET_PROD
+        auth-api-url: $AUTH_PROD_API_URL
+        audience: $AUDIENCE_PROD
+        requires: 
+        - gcp-gcr/build-and-push-image
+        filters:
+          branches:
+            only:
+              - master
+  staging-deployment:
+    jobs:
+    - gcp-gcr/build-and-push-image:
+        image: api
+        tag: $CIRCLE_SHA1
+        gcloud-service-key: GCLOUD_STAGING_SERVICE_KEY
+        google-project-id: GOOGLE_STAGING_PROJECT
+        
+        filters:
+          branches:
+              only:
+                - dev
+    - deployment:
+        cluster: $APP_STAGING_CLUSTER
+        hostname: api.sidespin.run
+        image: gcr.io/$GOOGLE_STAGING_PROJECT/api:$CIRCLE_SHA1
+        service-key: GCLOUD_STAGING_SERVICE_KEY
+        google-project-id: GOOGLE_STAGING_PROJECT
+        hasura-access-key: $HASURA_STAGING_ACCESS_KEY
+        hasura-cloud-uri: $HASURA_STAGING_CLOUD_URI
+        auth-github-token: $AUTH_STAGING_GITHUB_TOKEN
+        api-service-key: $API_STAGING_SERVICE_ACCOUNT
+        git-user-pass: $GIT_STAGING_USER_PASS
+        git-user: $GIT_STAGING_USER 
+        gitea-ssh-port: 22
+        gitea-access-token: $GITEA_STAGING_ACCESS_TOKEN
+        gitea-base-url: $GITEA_STAGING_BASE_URL
+        gitea-ssh-ip: $GITEA_STAGING_SSH_IP 
+        password-salt: $PASSWORD_SALT_STAGING
+        auth-api-token: $AUTH_STAGING_API_TOKEN
+        token-salt: $TOKEN_SALT_STAGING
+        customer-cluster-project-id: $CUSTOMER_STAGING_CLUSTER_PROJECT_ID
+        customer-cluster-id: $CUSTOMER_STAGING_CLUSTER_ID
+        customer-cluster-zone: $CUSTOMER_STAGING_CLUSTER_ZONE
+        cloudbuild-trigger-name: $CLOUDBUILD_STAGING_TRIGGER_NAME
+        deployment-base-domain: $DEPLOYMENT_BASE_STAGING_DOMAIN
+        client-id: $CLIENT_ID_STAGING
+        client-secret: $CLIENT_SECRET_STAGING
+        auth-api-url: $AUTH_STAGING_API_URL
+        audience: $AUDIENCE_STAGING
+        requires: 
+        - gcp-gcr/build-and-push-image
+        filters:
+          branches:
+              only:
+                - dev
+          
+
+
+  
+                
+   

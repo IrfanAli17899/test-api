@@ -1,0 +1,27 @@
+require('dotenv').config();
+
+module.exports = {
+  HASURA_CLOUD_URI: process.env.HASURA_CLOUD_URI,
+  GITEA_BASE_URL: process.env.GITEA_BASE_URL,
+  GITEA_ACCESS_TOKEN: process.env.GITEA_ACCESS_TOKEN,
+  PASSWORD_SALT: process.env.PASSWORD_SALT,
+  TOKEN_SALT: process.env.TOKEN_SALT,
+  PROJECT_ID: process.env.PROJECT_ID,
+  CLOUDBUILD_REPONAME: process.env.CLOUDBUILD_REPONAME,
+  KUBERNETES_ZONE: process.env.KUBERNETES_ZONE,
+  CLUSTER_ID: process.env.CLUSTER_ID,
+  GIT_USER: process.env.GIT_USER,
+  GIT_USER_PASS: process.env.GIT_USER_PASS,
+  AUTH_API_TOKEN: process.env.AUTH_API_TOKEN,
+  AUTH_API_URL: process.env.AUTH_API_URL,
+  CLIENT_ID: process.env.CLIENT_ID,
+  CLIENT_SECRET: process.env.CLIENT_SECRET,
+  GITEA_SSH_IP: process.env.GITEA_SSH_IP,
+  DEPLOYMENT_BASE_DOMAIN: process.env.DEPLOYMENT_BASE_DOMAIN,
+  CLOUDBUILD_TRIGGER_NAME: process.env.CLOUDBUILD_TRIGGER_NAME,
+  GITEA_SSH_PORT: process.env.GITEA_SSH_PORT,
+  AUDIENCE: process.env.AUDIENCE,
+  DEBUG: process.env.DEBUG,
+  AUTH_GITHUB_TOKEN: process.env.AUTH_GITHUB_TOKEN,
+  HASURA_ACCESS_KEY: process.env.HASURA_ACCESS_KEY,
+};
